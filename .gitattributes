@@ -1,0 +1,10 @@
+# 统一行尾：仓库内 LF，检出时按平台处理
+* text=auto
+
+*.py   text
+*.md   text
+*.txt  text
+*.bat  text eol=crlf
+
+# 图片按二进制处理
+*.png  binary
