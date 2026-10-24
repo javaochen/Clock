@@ -221,10 +221,20 @@ class ClockCreature(QWidget):
         side += side % 2  # 保证中心落在整数像素，缓存图与指针不会半像素错位
         self.resize(side, side)
 
-        # 运动状态
+        # 运动状态：从离鼠标最远的象限出生，避免一启动就被自己的光标吓到
         geo = self._bounds
-        self._x = geo.center().x()
-        self._y = geo.center().y()
+        cursor = QCursor.pos()
+        keep = self._radius * 1.02
+        candidates = [
+            (geo.left() + geo.width() * fx, geo.top() + geo.height() * fy)
+            for fx, fy in ((0.28, 0.30), (0.72, 0.30), (0.28, 0.70), (0.72, 0.70))
+        ]
+        self._x, self._y = max(
+            candidates,
+            key=lambda pt: (pt[0] - cursor.x()) ** 2 + (pt[1] - cursor.y()) ** 2,
+        )
+        self._x = _clamp(self._x, geo.left() + keep, geo.right() - keep)
+        self._y = _clamp(self._y, geo.top() + keep, geo.bottom() - keep)
         self._vx = 0.0
         self._vy = 0.0
         self._wander = random.uniform(0.0, TAU)
@@ -831,7 +841,7 @@ class ClockCreature(QWidget):
     def _draw_readout(self, p: QPainter, R: float, now: datetime) -> None:
         if self._paused:
             mode, mode_col = "HOLD", HOLD_GRAY
-        elif self._panic > 0.35:
+        elif self._panic > 0.15:
             mode, mode_col = "EVADE", AMBER
         else:
             mode, mode_col = "DRIFT", CYAN
