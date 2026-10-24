@@ -222,7 +222,7 @@ class ClockCreature(QWidget):
 
         screen = QGuiApplication.screenAt(QCursor.pos()) or QGuiApplication.primaryScreen()
         self._screen = screen
-        self._bounds = QRectF(screen.availableGeometry())
+        self._bounds = QRectF(screen.geometry())
 
         auto = int(round(min(self._bounds.width(), self._bounds.height())
                          * DIAMETER_FRACTION))
@@ -237,7 +237,7 @@ class ClockCreature(QWidget):
         # 运动状态：从离鼠标最远的象限出生，避免一启动就被自己的光标吓到
         geo = self._bounds
         cursor = QCursor.pos()
-        keep = self._radius * 1.02
+        keep = self._radius * 0.75
         candidates = [
             (geo.left() + geo.width() * fx, geo.top() + geo.height() * fy)
             for fx, fy in ((0.28, 0.30), (0.72, 0.30), (0.28, 0.70), (0.72, 0.70))
@@ -420,7 +420,7 @@ class ClockCreature(QWidget):
         # 边界回避
         left, top = self._bounds.left(), self._bounds.top()
         right, bottom = self._bounds.right(), self._bounds.bottom()
-        margin = R * 1.6
+        margin = R * 1.05
         ix = iy = 0.0
         if self._x - left < margin:
             ix += (margin - (self._x - left)) / margin
@@ -454,7 +454,7 @@ class ClockCreature(QWidget):
         self._x += self._vx * dt
         self._y += self._vy * dt
 
-        keep = R * 1.02
+        keep = R * 0.75
         if self._x < left + keep:
             self._x = left + keep
             self._vx = abs(self._vx) * 0.35
@@ -477,10 +477,10 @@ class ClockCreature(QWidget):
 
     def _refresh_bounds(self) -> None:
         try:
-            self._bounds = QRectF(self._screen.availableGeometry())
+            self._bounds = QRectF(self._screen.geometry())
         except RuntimeError:
             self._screen = QGuiApplication.primaryScreen()
-            self._bounds = QRectF(self._screen.availableGeometry())
+            self._bounds = QRectF(self._screen.geometry())
 
     def _update_face(self, dt: float) -> None:
         if self._blinking:
@@ -731,7 +731,13 @@ class ClockCreature(QWidget):
         else:
             time_col = _mix(ICE, AMBER, self._panic)
 
-        y = R * 1.200
+        # 靠近屏幕底边时把时间翻到表盘上方，避免贴边游走时被裁掉
+        margin = R * 1.32
+        if (self._y + margin > self._bounds.bottom()
+                and self._y - margin >= self._bounds.top()):
+            y = -R * 1.200
+        else:
+            y = R * 1.200
         w, h = self._readout_w, self._readout_h
         if READOUT_ALPHA:
             pill = QRectF(-w / 2.0, y - h / 2.0, w, h)
