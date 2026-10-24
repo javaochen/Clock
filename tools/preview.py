@@ -4,7 +4,8 @@
 用法：
     python tools/preview.py [输出路径]
 
-生成 docs/preview.png：左半深色壁纸、右半浅色壁纸，分别展示安静/逃跑状态。
+生成 docs/preview.png：左侧深色壁纸展示逃跑态，右侧浅色壁纸展示安静态，
+方便检查透明盘面、粗指针和描边在两种背景上的可读性。
 """
 
 from __future__ import annotations
@@ -64,17 +65,17 @@ def main() -> int:
 
     specs = [
         {
-            "caption": "安静：缓慢游走、偶尔眨眼",
-            "time": datetime(2026, 10, 25, 10, 9, 36, 420000),
-            "panic": 0.0,
-            "vel": QPointF(-42.0, -18.0),
-            "center": (270, 300),
-        },
-        {
             "caption": "鼠标靠近：瞪眼、警报读数、快速逃开",
             "time": datetime(2026, 10, 25, 22, 47, 12, 780000),
             "panic": 1.0,
             "vel": QPointF(620.0, -260.0),
+            "center": (270, 300),
+        },
+        {
+            "caption": "安静：缓慢游走、偶尔眨眼",
+            "time": datetime(2026, 10, 25, 10, 9, 36, 420000),
+            "panic": 0.0,
+            "vel": QPointF(-42.0, -18.0),
             "center": (770, 300),
         },
     ]
