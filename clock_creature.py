@@ -230,7 +230,7 @@ class ClockCreature(QWidget):
         self._diameter = int(diameter) if diameter else auto
         self._radius = self._diameter / 2.0
 
-        side = int(round(self._diameter * 1.55))
+        side = int(round(self._diameter * 1.42))
         side += side % 2  # 保证中心落在整数像素，缓存图与指针不会半像素错位
         self.resize(side, side)
 
@@ -268,17 +268,13 @@ class ClockCreature(QWidget):
         # 静态图层与只读字体，都是固定大小、不会随运行增长
         self._bg: QPixmap | None = None
         self._font_readout = QFont("Consolas")
-        self._font_readout.setPixelSize(max(9, int(round(self._radius * 0.135))))
+        self._font_readout.setPixelSize(max(7, int(round(self._radius * 0.105))))
         self._font_readout.setStyleHint(QFont.Monospace)
         self._fm = QFontMetrics(self._font_readout)
         self._w_time = self._fm.horizontalAdvance("00:00:00")
-        self._w_speed = self._fm.horizontalAdvance("v=000")
-        self._w_mode = self._fm.horizontalAdvance("DRIFT")
-        self._gap = self._fm.horizontalAdvance(" ")
-        self._pad = max(5, int(round(self._radius * 0.09)))
-        self._readout_w = (self._w_time + self._w_speed + self._w_mode
-                           + self._gap * 2 + self._pad * 2)
-        self._readout_h = self._fm.height() + max(4, int(round(self._radius * 0.10)))
+        self._pad = max(4, int(round(self._radius * 0.06)))
+        self._readout_w = self._w_time + self._pad * 2
+        self._readout_h = self._fm.height() + max(2, int(round(self._radius * 0.06)))
 
         self.move(round(self._x - side / 2), round(self._y - side / 2))
 
@@ -532,65 +528,31 @@ class ClockCreature(QWidget):
             p.setBrush(fill)
             p.drawPath(body)
 
-        # 内部极坐标网格：不画 1.0R 外圈，避免又形成一圈“边框”
-        p.save()
-        p.setClipPath(body)
-        p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(_rgba(MID_TEAL, 30), 1.0))
-        for rr in (0.25, 0.50):
-            p.drawEllipse(c, R * rr, R * rr)
-        for deg in range(0, 360, 30):
-            a = math.radians(deg)
-            p.drawLine(_polar(c, R * 0.12, a), _polar(c, R * 0.690, a))
-        p.setPen(QPen(_rgba(MID_TEAL, 48), 1.0))
-        p.drawLine(QPointF(c.x() - R * 0.715, c.y()),
-                   QPointF(c.x() + R * 0.715, c.y()))
-        p.drawLine(QPointF(c.x(), c.y() - R * 0.715),
-                   QPointF(c.x(), c.y() + R * 0.715))
-        p.restore()
-
         # 可选度盘淡色底；默认 0
         if DIAL_ALPHA:
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(3, 9, 14, DIAL_ALPHA))
             p.drawEllipse(c, R * 0.755, R * 0.755)
 
-        # 内圈 + 秒轨道：唯一的圆形参考线，不再画外框
-        p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(_rgba(MID_TEAL, 50), 1.0))
-        p.drawEllipse(c, R * 0.600, R * 0.600)
-
-        # 刻度：大刻度用深色描边 + 亮芯，小刻度用中调青色
+        # 只留刻度：去掉深色描边并压低对比，让指针成为唯一高对比元素
         for i in range(60):
-            major = i % 5 == 0
             cardinal = i % 15 == 0
-            if cardinal:
-                inner, outer = R * 0.630, R * 0.735
-                col, width = QColor(220, 244, 244, 240), R * 0.020
+            major = i % 5 == 0
+            if i == 0:
+                inner, outer = R * 0.645, R * 0.735
+                col, width = QColor(210, 238, 238, 225), R * 0.014
+            elif cardinal:
+                inner, outer = R * 0.660, R * 0.735
+                col, width = QColor(200, 232, 232, 185), R * 0.011
             elif major:
-                inner, outer = R * 0.665, R * 0.735
-                col, width = QColor(200, 236, 236, 190), R * 0.013
+                inner, outer = R * 0.692, R * 0.735
+                col, width = QColor(170, 215, 215, 115), R * 0.007
             else:
-                inner, outer = R * 0.700, R * 0.735
-                col, width = _rgba(MID_TEAL, 135), R * 0.007
+                inner, outer = R * 0.712, R * 0.735
+                col, width = _rgba(MID_TEAL, 78), R * 0.005
             a = i * TAU / 60.0
-            p1, p2 = _polar(c, inner, a), _polar(c, outer, a)
-            if major:
-                p.setPen(QPen(_rgba(OUTLINE, 165), max(1.4, width + 1.8),
-                              Qt.SolidLine, Qt.RoundCap))
-                p.drawLine(p1, p2)
             p.setPen(QPen(col, max(0.6, width), Qt.SolidLine, Qt.RoundCap))
-            p.drawLine(p1, p2)
-
-        # 12 点方向的定位缺口
-        notch = QPainterPath()
-        notch.moveTo(c.x() - R * 0.020, c.y() - R * 0.775)
-        notch.lineTo(c.x() + R * 0.020, c.y() - R * 0.775)
-        notch.lineTo(c.x(), c.y() - R * 0.720)
-        notch.closeSubpath()
-        p.setPen(QPen(OUTLINE, max(1.2, R * 0.014)))
-        p.setBrush(QColor(208, 238, 240, 235))
-        p.drawPath(notch)
+            p.drawLine(_polar(c, inner, a), _polar(c, outer, a))
 
     # ---- 渲染：每帧 -------------------------------------------------------
     def paintEvent(self, event):  # noqa: N802
@@ -613,8 +575,6 @@ class ClockCreature(QWidget):
         p.setRenderHints(QPainter.Antialiasing | QPainter.TextAntialiasing)
         p.translate(cx, cy)
 
-        self._draw_antennae(p, R, second_col)
-        self._draw_cilia(p, R, second_col)
         p.drawPixmap(-side // 2, -side // 2, self._bg)
 
         self._draw_mouth(p, R)
@@ -623,56 +583,17 @@ class ClockCreature(QWidget):
         self._draw_readout(p, R, now)
         p.end()
 
-    def _draw_antennae(self, p: QPainter, R: float, second_col: QColor) -> None:
-        t = self._t
-        for side in (-1.0, 1.0):
-            base = QPointF(side * R * 0.28, -R * 0.72)
-            sway = math.sin(t * 2.0 + side) * R * (0.018 + 0.030 * self._panic)
-            tip = QPointF(side * R * 0.52 + sway, -R * 1.24)
-            ctrl = QPointF(side * R * 0.42, -R * 1.12)
-            path = QPainterPath(base)
-            path.quadTo(ctrl, tip)
-            p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(_rgba(MID_TEAL, 230), max(1.1, R * 0.020),
-                          Qt.SolidLine, Qt.RoundCap))
-            p.drawPath(path)
-            # 传感器灯：颜色跟随秒针，靠近时变亮
-            lamp = _rgba(second_col, 220 if self._panic > 0.2 else 180)
-            p.setPen(Qt.NoPen)
-            p.setBrush(_rgba(lamp, 40))
-            p.drawEllipse(tip, R * 0.045, R * 0.045)
-            p.setBrush(_rgba(OUTLINE, 210))
-            p.drawEllipse(tip, R * 0.030, R * 0.030)
-            p.setBrush(lamp)
-            p.drawEllipse(tip, R * 0.021, R * 0.021)
-
-    def _draw_cilia(self, p: QPainter, R: float, second_col: QColor) -> None:
-        t = self._t
-        col = _mix(_rgba(MID_TEAL, 225), _rgba(second_col, 210),
-                   0.25 + 0.50 * self._panic)
-        p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(col, max(1.2, R * 0.040), Qt.SolidLine, Qt.RoundCap))
-        for i in range(5):
-            k = (i - 2) / 2.0
-            root = QPointF(k * R * 0.32, R * 0.75)
-            sway = math.sin(t * 3.0 + i * 1.25) * R * (0.022 + 0.050 * self._panic)
-            tip = QPointF(k * R * 0.44 + sway, R * 1.11)
-            ctrl = QPointF(k * R * 0.42 + sway * 0.4, R * 1.00)
-            path = QPainterPath(root)
-            path.quadTo(ctrl, tip)
-            p.drawPath(path)
-
     def _draw_mouth(self, p: QPainter, R: float) -> None:
         base_y = R * 0.365
-        half = R * 0.165
-        p.setPen(QPen(_rgba(MID_TEAL, 85), 1.0))
+        half = R * 0.140
+        p.setPen(QPen(_rgba(MID_TEAL, int(28 + 50 * self._panic)), 1.0))
         p.drawLine(QPointF(-half, base_y), QPointF(half, base_y))
-        p.drawLine(QPointF(-half, base_y - R * 0.014),
-                   QPointF(-half, base_y + R * 0.014))
-        p.drawLine(QPointF(half, base_y - R * 0.014),
-                   QPointF(half, base_y + R * 0.014))
+        p.drawLine(QPointF(-half, base_y - R * 0.012),
+                   QPointF(-half, base_y + R * 0.012))
+        p.drawLine(QPointF(half, base_y - R * 0.012),
+                   QPointF(half, base_y + R * 0.012))
 
-        amp = R * (0.010 + 0.046 * self._panic)
+        amp = R * (0.008 + 0.048 * self._panic)
         phase = self._t * (2.2 + 6.5 * self._panic)
         path = QPainterPath()
         n = 25
@@ -688,12 +609,12 @@ class ClockCreature(QWidget):
             else:
                 path.lineTo(x, y)
         col = _mix(CYAN, AMBER, self._panic)
-        width = max(1.3, R * 0.020)
+        width = max(1.0, R * 0.016)
         p.setBrush(Qt.NoBrush)
-        p.setPen(QPen(_rgba(OUTLINE, 150), width + 2.0,
-                      Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setPen(QPen(_rgba(OUTLINE, int(50 + 100 * self._panic)),
+                      width + 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.drawPath(path)
-        p.setPen(QPen(_rgba(col, 230), width,
+        p.setPen(QPen(_rgba(col, int(75 + 155 * self._panic)), width,
                       Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.drawPath(path)
 
@@ -708,9 +629,9 @@ class ClockCreature(QWidget):
             lx, ly, ln = 0.0, -1.0, 1.0
         lx, ly = lx / ln, ly / ln
 
-        eye_dx = R * 0.255
-        eye_y = -R * 0.270
-        eye_r = R * 0.105 * (1.0 + 0.08 * self._panic)
+        eye_dx = R * 0.235
+        eye_y = -R * 0.255
+        eye_r = R * 0.078 * (1.0 + 0.10 * self._panic)
         look = eye_r * 0.30
         open_ = self._eye_open
 
@@ -720,20 +641,20 @@ class ClockCreature(QWidget):
                 line_start = QPointF(ec.x() - eye_r * 0.9, ec.y())
                 line_end = QPointF(ec.x() + eye_r * 0.9, ec.y())
                 p.setBrush(Qt.NoBrush)
-                p.setPen(QPen(_rgba(OUTLINE, 210), max(2.0, R * 0.026),
+                p.setPen(QPen(_rgba(OUTLINE, 200), max(1.6, R * 0.018),
                               Qt.SolidLine, Qt.RoundCap))
                 p.drawLine(line_start, line_end)
-                p.setPen(QPen(QColor(206, 238, 240, 230),
-                              max(1.0, R * 0.012), Qt.SolidLine, Qt.RoundCap))
+                p.setPen(QPen(QColor(206, 238, 240, 210),
+                              max(0.8, R * 0.010), Qt.SolidLine, Qt.RoundCap))
                 p.drawLine(line_start, line_end)
                 continue
 
-            # 镜筒：浅色巩膜 + 深色描边 + 外侧青色细环
-            p.setBrush(QColor(214, 238, 240, 240))
-            p.setPen(QPen(_rgba(OUTLINE, 225), max(1.4, R * 0.020)))
+            # 小镜筒：浅色巩膜 + 细深色描边 + 很淡的青色外环
+            p.setBrush(QColor(214, 238, 240, 215))
+            p.setPen(QPen(_rgba(OUTLINE, 210), max(1.0, R * 0.014)))
             p.drawEllipse(ec, eye_r * 0.95, eye_r * open_)
             p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(_rgba(CYAN, 150), max(0.6, R * 0.006)))
+            p.setPen(QPen(_rgba(CYAN, 90), max(0.5, R * 0.005)))
             p.drawEllipse(ec, eye_r * 1.04, eye_r * 1.04 * open_)
 
             px, py = ec.x() + lx * look, ec.y() + ly * look
@@ -742,15 +663,15 @@ class ClockCreature(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(12, 58, 66, 245))
             p.drawEllipse(QPointF(px, py), iris, iris * squash)
-            p.setBrush(_rgba(minute_col, 200))
-            p.setPen(QPen(_rgba(minute_col, 190), max(0.6, R * 0.007)))
+            p.setBrush(_rgba(minute_col, 160))
+            p.setPen(QPen(_rgba(minute_col, 160), max(0.5, R * 0.006)))
             p.setBrush(Qt.NoBrush)
             p.drawEllipse(QPointF(px, py), iris * 0.72, iris * 0.72 * squash)
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(3, 8, 11, 250))
             p.drawEllipse(QPointF(px, py), iris * 0.40, iris * 0.40 * squash)
-            p.setBrush(QColor(255, 255, 255, 225))
-            hl = max(0.5, R * 0.010)
+            p.setBrush(QColor(255, 255, 255, 220))
+            hl = max(0.5, R * 0.008)
             p.drawEllipse(QPointF(px - iris * 0.28, py - iris * 0.32), hl, hl)
 
     def _draw_hands(self, p: QPainter, R: float, hour_col: QColor,
@@ -804,18 +725,13 @@ class ClockCreature(QWidget):
         p.drawEllipse(QPointF(0.0, 0.0), R * 0.017, R * 0.017)
 
     def _draw_readout(self, p: QPainter, R: float, now: datetime) -> None:
-        if self._paused:
-            mode, mode_col = "HOLD", HOLD_GRAY
-        elif self._panic > 0.15:
-            mode, mode_col = "EVADE", AMBER
-        else:
-            mode, mode_col = "DRIFT", CYAN
-
-        speed = int(round(math.hypot(self._vx, self._vy)))
         time_text = f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
-        speed_text = f"v={min(999, speed):03d}"
+        if self._paused:
+            time_col = HOLD_GRAY
+        else:
+            time_col = _mix(ICE, AMBER, self._panic)
 
-        y = R * 1.315
+        y = R * 1.200
         w, h = self._readout_w, self._readout_h
         if READOUT_ALPHA:
             pill = QRectF(-w / 2.0, y - h / 2.0, w, h)
@@ -824,21 +740,13 @@ class ClockCreature(QWidget):
             p.drawRoundedRect(pill, h / 2.0, h / 2.0)
 
         p.setFont(self._font_readout)
-        x = -w / 2.0 + self._pad
+        x = -self._w_time / 2.0
         baseline = y + self._fm.ascent() - self._fm.height() / 2.0
-
-        def label(text: str, color: QColor, xpos: float) -> None:
-            # 无底板时靠深色阴影保证浅色壁纸上也能读
-            p.setPen(QColor(2, 7, 11, 175))
-            p.drawText(QPointF(xpos + 1, baseline + 1), text)
-            p.setPen(color)
-            p.drawText(QPointF(xpos, baseline), text)
-
-        label(time_text, _rgba(ICE, 240), x)
-        x += self._w_time + self._gap
-        label(speed_text, QColor(190, 225, 225, 200), x)
-        x += self._w_speed + self._gap
-        label(mode, _rgba(mode_col, 245), x)
+        # 无底板：一层深色阴影保证浅色壁纸上也能读
+        p.setPen(QColor(2, 7, 11, 175))
+        p.drawText(QPointF(x + 1, baseline + 1), time_text)
+        p.setPen(_rgba(time_col, 235))
+        p.drawText(QPointF(x, baseline), time_text)
 
 
 # -----------------------------------------------------------------------------
