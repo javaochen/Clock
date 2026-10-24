@@ -116,23 +116,25 @@ def _polar(center: QPointF, radius: float, angle: float) -> QPointF:
 
 
 def _hand_colors(now: datetime):
-    """指针颜色由它当前指向的时刻决定，且只落在蓝—青—绿—琥珀区间内。
+    """指针颜色由它当前指向的时刻决定；三针各占一段互不重叠的色带。
 
-    * 时针：12 小时走完 210° → 35°（蓝 → 青 → 绿 → 琥珀）；
-    * 分针：1 小时走完 190° → 35°；
-    * 秒针：1 分钟走完 35° → 190°（琥珀 → 青），所以每分钟都能看到变化。
+    * 时针：暖色带 0° → 70°（红 → 黄绿），12 小时走完；
+    * 分针：冷色带 190° → 260°（青 → 紫），1 小时走完；
+    * 秒针：绿青色带 90° → 170°（绿 → 青），1 分钟走完。
+    三段之间留了 20° 空档，任何时刻三针都不会撞成同一个颜色；秒针一分钟转 80°，
+    是「变色」最明显的一根。三针再配不同明度/宽度，进一步拉开层级。
     """
     sec = now.second + now.microsecond / 1_000_000.0
     minute = now.minute + sec / 60.0
     hour = (now.hour % 12) + minute / 60.0
 
-    hour_hue = 210.0 - 175.0 * (hour / 12.0)
-    minute_hue = 190.0 - 155.0 * (minute / 60.0)
-    second_hue = 35.0 + 155.0 * (sec / 60.0)
+    hour_hue = 70.0 * (hour / 12.0)
+    minute_hue = 190.0 + 70.0 * (minute / 60.0)
+    second_hue = 90.0 + 80.0 * (sec / 60.0)
 
-    hour_col = QColor.fromHslF((hour_hue % 360.0) / 360.0, 0.62, 0.72, 1.0)
-    minute_col = QColor.fromHslF((minute_hue % 360.0) / 360.0, 0.72, 0.64, 1.0)
-    second_col = QColor.fromHslF((second_hue % 360.0) / 360.0, 0.86, 0.58, 1.0)
+    hour_col = QColor.fromHslF((hour_hue % 360.0) / 360.0, 0.70, 0.74, 1.0)
+    minute_col = QColor.fromHslF((minute_hue % 360.0) / 360.0, 0.84, 0.64, 1.0)
+    second_col = QColor.fromHslF((second_hue % 360.0) / 360.0, 0.94, 0.56, 1.0)
     return hour_col, minute_col, second_col, sec, minute, hour
 
 
@@ -189,7 +191,7 @@ def _stroke_hand(painter: QPainter, center: QPointF, angle: float,
     path = _hand_path(center, angle, length, half_width, bend)
     if halo:
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(_rgba(color, 38), max(3.0, half_width * 4.0),
+        painter.setPen(QPen(_rgba(color, 34), max(2.5, half_width * 2.8),
                             Qt.SolidLine, Qt.RoundCap))
         painter.drawPath(path)
     painter.setBrush(color)
@@ -689,9 +691,9 @@ class ClockCreature(QWidget):
         wobble = math.radians(0.35 + 2.8 * self._panic)
 
         specs = (
-            (hour_a, R * 0.405, R * 0.036, hour_col, False),
-            (minute_a, R * 0.585, R * 0.024, minute_col, False),
-            (second_a, R * 0.700, R * 0.013, second_col, True),
+            (hour_a, R * 0.405, R * 0.048, hour_col, False),
+            (minute_a, R * 0.585, R * 0.034, minute_col, False),
+            (second_a, R * 0.700, R * 0.019, second_col, True),
         )
         for idx, (angle, length, half_w, col, is_second) in enumerate(specs):
             a = angle + math.sin(self._t * 1.9 + idx * 1.7) * wobble
@@ -714,7 +716,7 @@ class ClockCreature(QWidget):
             bend = (math.sin(self._t * 1.7 + idx * 2.0) * 0.010
                     + math.sin(self._t * 6.5 + idx) * 0.014 * self._panic)
             _stroke_hand(p, QPointF(0.0, 0.0), a, length, half_w, col,
-                         bend=bend, halo=is_second, outline=True)
+                         bend=bend, halo=True, outline=True)
 
         # 中心轴：深色外圈 + 亮芯
         p.setPen(QPen(_rgba(OUTLINE, 230), max(1.2, R * 0.012)))
